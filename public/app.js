@@ -1,24 +1,44 @@
 const API = '/api';
 let currentNV = null;
+let currentSV = null;
 let currentTab = 'dangmuon';
+let currentSVSection = 'sachmuon';
 
 // ═══════════════════════════════════════════════ INIT
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('today-date').textContent = new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const saved = sessionStorage.getItem('nhanvien');
-  if (saved) {
-    currentNV = JSON.parse(saved);
+  document.getElementById('sv-today-date').textContent = new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  const savedNV = sessionStorage.getItem('nhanvien');
+  const savedSV = sessionStorage.getItem('sinhvien');
+
+  if (savedNV) {
+    currentNV = JSON.parse(savedNV);
     setNhanVienUI();
     showApp();
+  } else if (savedSV) {
+    currentSV = JSON.parse(savedSV);
+    showSVApp();
   }
-  // Set default date cho form
+
+  // Set default date cho form (30 ngày)
   const today = new Date().toISOString().split('T')[0];
-  const next14 = new Date(Date.now() + 14*86400000).toISOString().split('T')[0];
+  const next30 = new Date(Date.now() + 30*86400000).toISOString().split('T')[0];
   if (document.getElementById('new-ngayMuon')) document.getElementById('new-ngayMuon').value = today;
-  if (document.getElementById('new-hanTra')) document.getElementById('new-hanTra').value = next14;
+  if (document.getElementById('new-hanTra')) document.getElementById('new-hanTra').value = next30;
 });
 
-// ═══════════════════════════════════════════════ AUTH
+// ═══════════════════════════════════════════════ LOGIN TAB SWITCH
+function switchLoginTab(role) {
+  document.getElementById('form-nhanvien').style.display = role === 'nhanvien' ? 'block' : 'none';
+  document.getElementById('form-sinhvien').style.display = role === 'sinhvien' ? 'block' : 'none';
+  document.getElementById('tab-nhanvien').classList.toggle('active', role === 'nhanvien');
+  document.getElementById('tab-sinhvien').classList.toggle('active', role === 'sinhvien');
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('login-error-sv').textContent = '';
+}
+
+// ═══════════════════════════════════════════════ AUTH — NHÂN VIÊN
 async function doLogin() {
   const maNV = document.getElementById('login-manv').value.trim();
   const matKhau = document.getElementById('login-matkhau').value;
@@ -50,6 +70,7 @@ function setNhanVienUI() {
 
 function showApp() {
   document.getElementById('page-login').classList.remove('active');
+  document.getElementById('page-sinhvien').classList.remove('active');
   document.getElementById('page-app').classList.add('active');
   loadDashboard();
 }
@@ -64,7 +85,123 @@ function doLogout() {
   document.getElementById('login-error').textContent = '';
 }
 
-// ═══════════════════════════════════════════════ NAVIGATION
+// ═══════════════════════════════════════════════ AUTH — SINH VIÊN
+async function doLoginSV() {
+  const maSV = document.getElementById('login-masv').value.trim();
+  const matKhau = document.getElementById('login-matkhau-sv').value;
+  const errEl = document.getElementById('login-error-sv');
+  if (!maSV || !matKhau) { errEl.textContent = 'Vui lòng nhập đầy đủ thông tin'; return; }
+  try {
+    const res = await fetch(`${API}/login/sinhvien`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ maSV, matKhau }) });
+    const data = await res.json();
+    if (data.success) {
+      currentSV = data.sinhvien;
+      sessionStorage.setItem('sinhvien', JSON.stringify(currentSV));
+      showSVApp();
+    } else {
+      errEl.textContent = data.message;
+    }
+  } catch (e) {
+    errEl.textContent = 'Không thể kết nối đến server. Hãy chắc server đang chạy!';
+  }
+}
+
+function showSVApp() {
+  document.getElementById('page-login').classList.remove('active');
+  document.getElementById('page-app').classList.remove('active');
+  document.getElementById('page-sinhvien').classList.add('active');
+  // Cập nhật thông tin sinh viên
+  if (currentSV) {
+    document.getElementById('sv-hoten').textContent = currentSV.HoTen || '---';
+    const initials = (currentSV.HoTen || 'SV').split(' ').slice(-2).map(w => w[0]).join('').toUpperCase();
+    document.getElementById('sv-avatar').textContent = initials || 'SV';
+  }
+  // Load dữ liệu mặc định
+  showSVSection('sachmuon');
+}
+
+function doLogoutSV() {
+  sessionStorage.removeItem('sinhvien');
+  currentSV = null;
+  document.getElementById('page-sinhvien').classList.remove('active');
+  document.getElementById('page-login').classList.add('active');
+  document.getElementById('login-masv').value = '';
+  document.getElementById('login-matkhau-sv').value = '';
+  document.getElementById('login-error-sv').textContent = '';
+  switchLoginTab('sinhvien');
+}
+
+// ═══════════════════════════════════════════════ NAVIGATION (SINH VIÊN)
+function showSVSection(name) {
+  currentSVSection = name;
+  document.querySelectorAll('.sv-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.sv-nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`sv-section-${name}`).classList.add('active');
+  document.getElementById(`sv-btn-${name}`).classList.add('active');
+
+  if (name === 'sachmuon') loadSVSachDangMuon();
+  if (name === 'thongke') loadSVThongKe();
+}
+
+// ─── Load sách đang mượn của sinh viên
+async function loadSVSachDangMuon() {
+  if (!currentSV) return;
+  const tbody = document.getElementById('sv-sach-tbody');
+  tbody.innerHTML = '<tr><td colspan="6" class="loading-row">Đang tải dữ liệu...</td></tr>';
+  try {
+    const res = await fetch(`${API}/phieumuon?trangthai=dangmuon&maSV=${currentSV.MaSV}`);
+    const list = await res.json();
+
+    if (list.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="loading-row" style="color:#059669">✓ Bạn hiện không có sách đang mượn</td></tr>';
+      document.getElementById('sv-alert-quahan').style.display = 'none';
+      return;
+    }
+
+    const today = new Date();
+    let hasQuaHan = false;
+    tbody.innerHTML = list.map(p => {
+      const isQuaHan = new Date(p.HanTra) < today;
+      if (isQuaHan) hasQuaHan = true;
+      return `<tr style="${isQuaHan ? 'background:#fff5f5;' : ''}">
+        <td><strong>${p.MaPM}</strong></td>
+        <td style="max-width:200px;font-size:13px">${p.DanhSachTL || '--'}</td>
+        <td>${formatDate(p.NgayMuon)}</td>
+        <td>${isQuaHan ? `<span style="color:var(--red);font-weight:600">${formatDate(p.HanTra)} ⚠️</span>` : formatDate(p.HanTra)}</td>
+        <td style="text-align:center">${p.SoLanGiaHan}</td>
+        <td>${isQuaHan ? '<span class="badge badge-quahan">Quá Hạn</span>' : '<span class="badge badge-muon">Đang Mượn</span>'}</td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('sv-alert-quahan').style.display = hasQuaHan ? 'block' : 'none';
+  } catch (e) {
+    tbody.innerHTML = '<tr><td colspan="6" class="loading-row">Lỗi tải dữ liệu</td></tr>';
+  }
+}
+
+// ─── Load thống kê cho sinh viên (dùng chung API /api/thongke)
+async function loadSVThongKe() {
+  try {
+    const res = await fetch(`${API}/thongke`);
+    const d = await res.json();
+
+    const maxLuot = Math.max(...d.luotMuonTheoThang.map(x => x.soLuot), 1);
+    document.getElementById('sv-chart-thang').innerHTML = d.luotMuonTheoThang.map(x => `
+      <div class="bar-item">
+        <div class="bar-label">${x.thang}</div>
+        <div class="bar-track"><div class="bar-fill teal" style="width:${Math.round(x.soLuot/maxLuot*100)}%">${x.soLuot}</div></div>
+      </div>`).join('');
+
+    const maxTL = Math.max(...d.tlHayMuon.map(x => x.soLuot), 1);
+    document.getElementById('sv-chart-tl').innerHTML = d.tlHayMuon.map(x => `
+      <div class="bar-item">
+        <div class="bar-label" style="font-size:11px">${x.TenTL.length > 18 ? x.TenTL.substring(0,18)+'...' : x.TenTL}</div>
+        <div class="bar-track"><div class="bar-fill orange" style="width:${Math.round(x.soLuot/maxTL*100)}%">${x.soLuot}</div></div>
+      </div>`).join('');
+  } catch (e) { console.error(e); }
+}
+
+// ═══════════════════════════════════════════════ NAVIGATION (NHÂN VIÊN)
 function showSection(name) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -432,9 +569,9 @@ async function traSach() {
 function openGiaHanModal(maPM, hanTra) {
   document.getElementById('giahan-maPM').value = maPM;
   document.getElementById('giahan-maPM-show').value = maPM;
-  // Default: +14 ngày từ hạn trả hiện tại
+  // Default: +30 ngày từ hạn trả hiện tại
   const newDate = new Date(hanTra);
-  newDate.setDate(newDate.getDate() + 14);
+  newDate.setDate(newDate.getDate() + 30);
   document.getElementById('giahan-hanMoi').value = newDate.toISOString().split('T')[0];
   openModal('modal-giahan');
 }
@@ -444,13 +581,18 @@ async function giaHan() {
   const hanMoi = document.getElementById('giahan-hanMoi').value;
   if (!hanMoi) { showToast('Vui lòng chọn hạn trả mới!', 'error'); return; }
   try {
-    await fetch(`${API}/phieumuon/${maPM}/giahan`, {
+    const res = await fetch(`${API}/phieumuon/${maPM}/giahan`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ HanTraMoi: hanMoi })
     });
-    closeModal('modal-giahan');
-    showToast('Gia hạn thành công!', 'success');
-    loadPhieuMuon(currentTab);
+    const d = await res.json();
+    if (d.success) {
+      closeModal('modal-giahan');
+      showToast('Gia hạn thành công!', 'success');
+      loadPhieuMuon(currentTab);
+    } else {
+      showToast(d.message || 'Lỗi gia hạn!', 'error');
+    }
   } catch (e) { showToast('Lỗi!', 'error'); }
 }
 

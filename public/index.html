@@ -22,26 +22,46 @@
       <h1>Thư Viện <span>Đại Học</span></h1>
       <p>Hệ thống quản lý mượn trả tài liệu</p>
     </div>
-    <div class="login-form">
+
+    <!-- Tab chọn vai trò -->
+    <div class="login-tabs">
+      <button id="tab-nhanvien" class="login-tab active" onclick="switchLoginTab('nhanvien')">Nhân Viên</button>
+      <button id="tab-sinhvien" class="login-tab" onclick="switchLoginTab('sinhvien')">Sinh Viên</button>
+    </div>
+
+    <!-- Form Nhân viên -->
+    <div id="form-nhanvien" class="login-form">
       <div class="input-group">
         <label>Mã nhân viên</label>
         <input type="text" id="login-manv" placeholder="Ví dụ: PLB07355" />
       </div>
       <div class="input-group">
         <label>Mật khẩu</label>
-        <input type="password" id="login-matkhau" placeholder="••••••" />
+        <input type="password" id="login-matkhau" placeholder="••••••" onkeypress="if(event.key==='Enter') doLogin()" />
       </div>
       <div id="login-error" class="error-msg"></div>
       <button class="btn-primary full" onclick="doLogin()">ĐĂNG NHẬP</button>
+      <p class="sample-hint">Tài khoản mẫu: <strong>PLB07355</strong> / <strong>123456</strong></p>
     </div>
-    <p class="login-hint" style="margin-top: 24px; line-height: 1.6; font-size: 13px; color: rgba(255,255,255,0.6); text-align: center;">
-      <strong>Thông tin đăng nhập thủ thư mẫu:</strong><br>
-      Mã nhân viên: <strong style="color: var(--teal-light);">PLB07355</strong> | Mật khẩu: <strong style="color: var(--teal-light);">123456</strong>
-    </p>
+
+    <!-- Form Sinh viên -->
+    <div id="form-sinhvien" class="login-form" style="display:none">
+      <div class="input-group">
+        <label>Mã sinh viên</label>
+        <input type="text" id="login-masv" placeholder="Ví dụ: 24D190176" />
+      </div>
+      <div class="input-group">
+        <label>Mật khẩu</label>
+        <input type="password" id="login-matkhau-sv" placeholder="••••••" onkeypress="if(event.key==='Enter') doLoginSV()" />
+      </div>
+      <div id="login-error-sv" class="error-msg"></div>
+      <button class="btn-primary full" onclick="doLoginSV()">ĐĂNG NHẬP</button>
+      <p class="sample-hint">Tài khoản mẫu: <strong>24D190176</strong> / <strong>123456</strong></p>
+    </div>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════ APP CHÍNH -->
+<!-- ═══════════════════════════════════════════════════════ APP CHÍNH (NHÂN VIÊN) -->
 <div id="page-app" class="page">
 
   <!-- SIDEBAR -->
@@ -207,7 +227,7 @@
     <!-- ── THỐNG KÊ -->
     <section id="section-thongke" class="section">
       <div class="section-header">
-        <h2>Báo Cáo & Thống Kê</h2>
+        <h2>Báo Cáo &amp; Thống Kê</h2>
       </div>
       <div class="stats-grid">
         <div class="tk-card">
@@ -235,12 +255,88 @@
   </main>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════ APP SINH VIÊN -->
+<div id="page-sinhvien" class="page">
+  <!-- Header sinh viên -->
+  <div class="sv-header">
+    <div class="sv-header-left">
+      <div class="logo-icon-sm">📚</div>
+      <div>
+        <div class="sv-header-title">Thư Viện Đại Học</div>
+        <div class="sv-header-sub">Cổng Tra Cứu Sinh Viên</div>
+      </div>
+    </div>
+    <div class="sv-header-right">
+      <div class="sv-welcome">
+        <span class="sv-avatar" id="sv-avatar">SV</span>
+        <div>
+          <div class="sv-welcome-text">Xin chào,</div>
+          <div class="sv-name" id="sv-hoten">---</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="doLogoutSV()">Đăng xuất</button>
+    </div>
+  </div>
+
+  <!-- Nội dung sinh viên -->
+  <div class="sv-body">
+    <!-- Sidebar điều hướng -->
+    <aside class="sv-sidebar">
+      <button id="sv-btn-sachmuon" class="sv-nav-btn active" onclick="showSVSection('sachmuon')">
+        <span>📖</span> Sách Đang Mượn
+      </button>
+      <button id="sv-btn-thongke" class="sv-nav-btn" onclick="showSVSection('thongke')">
+        <span>📊</span> Thống Kê Sách
+      </button>
+    </aside>
+
+    <!-- Phần sách đang mượn -->
+    <main class="sv-main">
+      <section id="sv-section-sachmuon" class="sv-section active">
+        <div class="section-header">
+          <h2>📖 Sách Đang Mượn</h2>
+          <span class="date-badge" id="sv-today-date"></span>
+        </div>
+        <div id="sv-alert-quahan" class="sv-alert-quahan" style="display:none">
+          ⚠️ Bạn đang có phiếu mượn <strong>quá hạn</strong>! Vui lòng liên hệ thư viện để xử lý.
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr><th>Mã PM</th><th>Tên Tài Liệu</th><th>Ngày Mượn</th><th>Hạn Trả</th><th>Số Lần Gia Hạn</th><th>Trạng Thái</th></tr>
+            </thead>
+            <tbody id="sv-sach-tbody">
+              <tr><td colspan="6" class="loading-row">Đang tải dữ liệu...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="sv-section-thongke" class="sv-section">
+        <div class="section-header">
+          <h2>📊 Thống Kê Sách Thư Viện</h2>
+        </div>
+        <div class="stats-grid">
+          <div class="tk-card">
+            <h3>📈 Lượt Mượn Theo Tháng</h3>
+            <div id="sv-chart-thang" class="bar-chart"></div>
+          </div>
+          <div class="tk-card">
+            <h3>🏆 Top 5 Tài Liệu Được Mượn Nhiều</h3>
+            <div id="sv-chart-tl" class="bar-chart"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
 <!-- ═══════════════════════════════════════════════════════ CHATBOT -->
 <div id="chatbot-toggle" onclick="toggleChat()">💬</div>
 <div id="chatbot-box">
   <div class="chat-header">
     <div>
-      <div class="chat-title">Trợ Lý AI</div>
+      <div class="chat-title">Chatbot AI</div>
       <div class="chat-sub">Hỏi về tài liệu, phiếu mượn...</div>
     </div>
     <button onclick="toggleChat()" class="chat-close">✕</button>

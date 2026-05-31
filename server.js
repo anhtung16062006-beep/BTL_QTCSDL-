@@ -18,7 +18,8 @@ const casingMap = {
   mapm: 'MaPM', ngaymuon: 'NgayMuon', hantra: 'HanTra', ngaytra: 'NgayTra', solangiahan: 'SoLanGiaHan',
   danhsachtl: 'DanhSachTL', tl: 'TL', songaytre: 'soNgayTre',
   tongtl: 'tongTL', dangmuon: 'dangMuon', tongsv: 'tongSV', phieuchuatra: 'phieuChuaTra', quahan: 'quaHan',
-  thang: 'thang', soluot: 'soLuot'
+  thang: 'thang', soluot: 'soLuot',
+  sophieu: 'soPhieu', soquahan: 'soQuaHan'
 };
 
 function normalizeRow(row) {
@@ -35,7 +36,7 @@ function translateQuery(sql, params = []) {
   let pgSql = sql;
   
   // Replace MySQL specific dialects
-  pgSql = pgSql.replace(/GROUP_CONCAT\(([^,]+)\s+SEPARATOR\s+('[^']+')\)/gi, 'STRING_AGG($1, $2)');
+  pgSql = pgSql.replace(/GROUP_CONCAT\(([^,]+)\s+SEPARATOR\s+('[^']+'\))/gi, 'STRING_AGG($1, $2)');
   pgSql = pgSql.replace(/GROUP_CONCAT\(([^)]+)\)/gi, "STRING_AGG($1, ',')");
   pgSql = pgSql.replace(/DATE_FORMAT\(([^,]+),\s*'%m\/%Y'\)/gi, "TO_CHAR($1, 'MM/YYYY')");
   pgSql = pgSql.replace(/CURDATE\(\)/gi, 'CURRENT_DATE');
@@ -128,6 +129,23 @@ app.post('/api/login', async (req, res) => {
     // Đơn giản: so sánh thẳng (thực tế nên dùng bcrypt)
     if (matKhau !== '123456') return res.json({ success: false, message: 'Mật khẩu không đúng' });
     res.json({ success: true, nhanvien: rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── ĐĂNG NHẬP SINH VIÊN ─────────────────────────────────────────────────────
+app.post('/api/login/sinhvien', async (req, res) => {
+  const { maSV, matKhau } = req.body;
+  try {
+    const [rows] = await pool.query(
+      'SELECT MaSV, HoTen, MatKhau, TrangThaiTK FROM NGUOIDUNG WHERE MaSV = ?', [maSV]
+    );
+    if (rows.length === 0) return res.json({ success: false, message: 'Mã sinh viên không tồn tại' });
+    const sv = rows[0];
+    if (matKhau !== sv.MatKhau) return res.json({ success: false, message: 'Mật khẩu không đúng' });
+    if (sv.TrangThaiTK !== 'Hoạt động') return res.json({ success: false, message: 'Tài khoản đã bị khóa' });
+    res.json({ success: true, sinhvien: { MaSV: sv.MaSV, HoTen: sv.HoTen, TrangThaiTK: sv.TrangThaiTK } });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -289,8 +307,36 @@ app.get('/api/phieumuon', async (req, res) => {
   }
 });
 
+// ─── TẠO PHIẾU MƯỢN (có kiểm tra điều kiện) ─────────────────────────────────
 app.post('/api/phieumuon', async (req, res) => {
   const { MaPM, NgayMuon, HanTra, MaSV, MaNV, DanhSachTL } = req.body;
+
+  // Kiểm tra 1 — Trạng thái tài khoản sinh viên
+  try {
+    const [svRows] = await pool.query('SELECT TrangThaiTK FROM NGUOIDUNG WHERE MaSV = ?', [MaSV]);
+    if (svRows.length === 0) return res.json({ success: false, message: 'Sinh viên không tồn tại' });
+    if (svRows[0].TrangThaiTK !== 'Hoạt động') return res.json({ success: false, message: 'Tài khoản sinh viên đã bị khóa, không thể mượn tài liệu' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+
+  // Kiểm tra 2 — Giới hạn 5 phiếu đang mượn
+  try {
+    const [[{ soPhieu }]] = await pool.query('SELECT COUNT(*) as soPhieu FROM PHIEUMUON WHERE MaSV = ? AND NgayTra IS NULL', [MaSV]);
+    if (parseInt(soPhieu) >= 5) return res.json({ success: false, message: 'Sinh viên đã đạt giới hạn 5 phiếu mượn, vui lòng trả bớt trước khi mượn thêm' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+
+  // Kiểm tra 3 — Đang có phiếu quá hạn
+  try {
+    const [[{ soQuaHan }]] = await pool.query('SELECT COUNT(*) as soQuaHan FROM PHIEUMUON WHERE MaSV = ? AND NgayTra IS NULL AND HanTra < CURRENT_DATE', [MaSV]);
+    if (parseInt(soQuaHan) > 0) return res.json({ success: false, message: 'Sinh viên đang có phiếu mượn quá hạn, vui lòng trả trước khi mượn thêm' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+
+  // Tất cả hợp lệ — thực hiện INSERT
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -306,7 +352,7 @@ app.post('/api/phieumuon', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     await conn.rollback();
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   } finally {
     conn.release();
   }
@@ -331,16 +377,27 @@ app.put('/api/phieumuon/:maPM/tra', async (req, res) => {
   }
 });
 
+// ─── GIA HẠN PHIẾU MƯỢN (có kiểm tra giới hạn 3 lần) ───────────────────────
 app.put('/api/phieumuon/:maPM/giahan', async (req, res) => {
   const { HanTraMoi } = req.body;
+  const { maPM } = req.params;
   try {
+    // Kiểm tra phiếu tồn tại
+    const [rows] = await pool.query('SELECT SoLanGiaHan, NgayTra FROM PHIEUMUON WHERE MaPM = ?', [maPM]);
+    if (rows.length === 0) return res.json({ success: false, message: 'Không tìm thấy phiếu mượn' });
+    const phieu = rows[0];
+    // Kiểm tra đã trả chưa
+    if (phieu.NgayTra !== null) return res.json({ success: false, message: 'Phiếu đã được trả, không thể gia hạn' });
+    // Kiểm tra giới hạn gia hạn
+    if (parseInt(phieu.SoLanGiaHan) >= 3) return res.json({ success: false, message: 'Đã vượt quá số lần gia hạn cho phép (tối đa 3 lần)' });
+    // Thực hiện gia hạn
     await pool.query(
       'UPDATE PHIEUMUON SET HanTra=?, SoLanGiaHan=SoLanGiaHan+1 WHERE MaPM=?',
-      [HanTraMoi, req.params.maPM]
+      [HanTraMoi, maPM]
     );
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
@@ -373,7 +430,7 @@ app.get('/api/thongke', async (req, res) => {
 app.post('/api/chatbot', async (req, res) => {
   const { message } = req.body;
   try {
-    // Lấy dữ liệu thực từ MySQL để đưa vào context cho AI
+    // Lấy dữ liệu thực từ DB để đưa vào context cho AI
     const [tailieu] = await pool.query('SELECT MaTL, TenTL, TacGia, LoaiTL, TrangThai FROM TAILIEU');
     const [phieuQuaHan] = await pool.query(`
       SELECT pm.MaPM, nd.HoTen, pm.MaSV, pm.HanTra, GROUP_CONCAT(c.MaTL) as TL,
@@ -406,7 +463,7 @@ PHIẾU ĐANG MƯỢN:
 ${dangMuon.map(p => `- ${p.MaPM}: ${p.HoTen} (${p.MaSV}) | Tài liệu: ${p.TL} | Hạn trả: ${p.HanTra}`).join('\n')}
     `;
 
-    const systemPrompt = `Bạn là trợ lý AI của hệ thống quản lý thư viện đại học. Nhiệm vụ của bạn là hỗ trợ nhân viên thư viện tra cứu thông tin nhanh chóng.\n\n${dbContext}\n\nHãy trả lời ngắn gọn, chính xác dựa trên dữ liệu trên. Nếu không tìm thấy thông tin, hãy nói rõ. Trả lời bằng tiếng Việt.`;
+    const systemPrompt = `Bạn là Chatbot AI của hệ thống quản lý thư viện đại học. Nhiệm vụ của bạn là hỗ trợ nhân viên thư viện tra cứu thông tin nhanh chóng.\n\n${dbContext}\n\nHãy trả lời ngắn gọn, chính xác dựa trên dữ liệu trên. Nếu không tìm thấy thông tin, hãy nói rõ. Trả lời bằng tiếng Việt.`;
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
