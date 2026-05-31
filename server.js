@@ -287,7 +287,9 @@ app.put('/api/nguoidung/:maSV', async (req, res) => {
 app.get('/api/phieumuon', async (req, res) => {
   const { trangthai, maSV } = req.query;
   let sql = `
-    SELECT pm.*, nd.HoTen, GROUP_CONCAT(c.MaTL SEPARATOR ', ') as DanhSachTL
+    SELECT pm.MaPM, pm.NgayMuon, pm.HanTra, pm.NgayTra, pm.SoLanGiaHan, pm.MaSV, pm.MaNV,
+           nd.HoTen,
+           STRING_AGG(c.MaTL::text, ', ' ORDER BY c.MaTL) as "DanhSachTL"
     FROM PHIEUMUON pm
     LEFT JOIN NGUOIDUNG nd ON pm.MaSV = nd.MaSV
     LEFT JOIN CHUA c ON pm.MaPM = c.MaPM
@@ -295,13 +297,22 @@ app.get('/api/phieumuon', async (req, res) => {
   `;
   const params = [];
   if (trangthai === 'dangmuon') { sql += ' AND pm.NgayTra IS NULL'; }
-  if (trangthai === 'quahan') { sql += ' AND pm.NgayTra IS NULL AND pm.HanTra < CURDATE()'; }
+  if (trangthai === 'quahan') { sql += ' AND pm.NgayTra IS NULL AND pm.HanTra < CURRENT_DATE'; }
   if (trangthai === 'dattra') { sql += ' AND pm.NgayTra IS NOT NULL'; }
-  if (maSV) { sql += ' AND pm.MaSV = ?'; params.push(maSV); }
-  sql += ' GROUP BY pm.MaPM ORDER BY pm.NgayMuon DESC';
+  if (maSV) {
+    params.push(maSV);
+    sql += ` AND pm.MaSV = $${params.length}`;
+  }
+  sql += ' GROUP BY pm.MaPM, pm.NgayMuon, pm.HanTra, pm.NgayTra, pm.SoLanGiaHan, pm.MaSV, pm.MaNV, nd.HoTen ORDER BY pm.NgayMuon DESC';
   try {
-    const [rows] = await pool.query(sql, params);
-    res.json(rows);
+    const client = await pgPool.connect();
+    try {
+      const result = await client.query(sql, params);
+      const rows = result.rows.map(normalizeRow);
+      res.json(rows);
+    } finally {
+      client.release();
+    }
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
