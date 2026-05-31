@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hệ Thống Quản Lý Thư Viện</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ ĐĂNG NHẬP -->
+<div id="page-login" class="page active">
+  <div class="login-bg">
+    <div class="login-orb orb1"></div>
+    <div class="login-orb orb2"></div>
+    <div class="login-orb orb3"></div>
+  </div>
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-icon">📚</div>
+      <h1>Thư Viện <span>Đại Học</span></h1>
+      <p>Hệ thống quản lý mượn trả tài liệu</p>
+    </div>
+    <div class="login-form">
+      <div class="input-group">
+        <label>Mã nhân viên</label>
+        <input type="text" id="login-manv" placeholder="Ví dụ: PLB07355" />
+      </div>
+      <div class="input-group">
+        <label>Mật khẩu</label>
+        <input type="password" id="login-matkhau" placeholder="••••••" />
+      </div>
+      <div id="login-error" class="error-msg"></div>
+      <button class="btn-primary full" onclick="doLogin()">ĐĂNG NHẬP</button>
+    </div>
+    <p class="login-hint" style="margin-top: 24px; line-height: 1.6; font-size: 13px; color: rgba(255,255,255,0.6); text-align: center;">
+      <strong>Thông tin đăng nhập thủ thư mẫu:</strong><br>
+      Mã nhân viên: <strong style="color: var(--teal-light);">PLB07355</strong> | Mật khẩu: <strong style="color: var(--teal-light);">123456</strong>
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ APP CHÍNH -->
+<div id="page-app" class="page">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo"></div>
+      <div>
+        <div class="sidebar-title">Thư Viện</div>
+        <div class="sidebar-sub">Quản Lý Hệ Thống</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item active" onclick="showSection('dashboard')" data-section="dashboard">
+        <span class="nav-icon"></span><span>Tổng Quan</span>
+      </a>
+      <a class="nav-item" onclick="showSection('tailieu')" data-section="tailieu">
+        <span class="nav-icon"></span><span>Tài Liệu</span>
+      </a>
+      <a class="nav-item" onclick="showSection('nguoidung')" data-section="nguoidung">
+        <span class="nav-icon"></span><span>Người Dùng</span>
+      </a>
+      <a class="nav-item" onclick="showSection('muonttra')" data-section="muonttra">
+        <span class="nav-icon"></span><span>Mượn / Trả</span>
+      </a>
+      <a class="nav-item" onclick="showSection('thongke')" data-section="thongke">
+        <span class="nav-icon"></span><span>Thống Kê</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="nv-info">
+        <div class="nv-avatar" id="nv-avatar">NV</div>
+        <div>
+          <div id="nv-ten" class="nv-ten">---</div>
+          <div id="nv-chucvu" class="nv-chucvu">---</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">Đăng xuất</button>
+    </div>
+  </aside>
+
+  <!-- NỘI DUNG CHÍNH -->
+  <main class="main-content">
+
+    <!-- ── DASHBOARD -->
+    <section id="section-dashboard" class="section active">
+      <div class="section-header">
+        <h2>Tổng Quan Hệ Thống</h2>
+        <span class="date-badge" id="today-date"></span>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card teal">
+          <div class="stat-icon">📚</div>
+          <div class="stat-value" id="stat-tongtl">--</div>
+          <div class="stat-label">Tổng Tài Liệu</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-icon">🔄</div>
+          <div class="stat-value" id="stat-dangmuon">--</div>
+          <div class="stat-label">Đang Mượn</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-icon">👥</div>
+          <div class="stat-value" id="stat-tongsv">--</div>
+          <div class="stat-label">Sinh Viên</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-icon">⚠️</div>
+          <div class="stat-value" id="stat-quahan">--</div>
+          <div class="stat-label">Quá Hạn</div>
+        </div>
+      </div>
+      <div class="dashboard-cards">
+        <div class="dash-card">
+          <h3>Phiếu Đang Mượn</h3>
+          <div id="dash-phieu-list" class="dash-list">Đang tải...</div>
+        </div>
+        <div class="dash-card">
+          <h3>⚠️ Vi Phạm Quá Hạn</h3>
+          <div id="dash-vipham-list" class="dash-list">Đang tải...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── TÀI LIỆU -->
+    <section id="section-tailieu" class="section">
+      <div class="section-header">
+        <h2>Quản Lý Tài Liệu</h2>
+        <button class="btn-primary" onclick="openModal('modal-them-tl')">+ Thêm Tài Liệu</button>
+      </div>
+      <div class="filter-bar">
+        <input type="text" id="tl-search" placeholder="🔍 Tìm theo tên, tác giả..." oninput="loadTaiLieu()" />
+        <select id="tl-loai" onchange="loadTaiLieu()">
+          <option value="">Tất cả loại</option>
+          <option value="Sách">Sách</option>
+          <option value="Giáo trình">Giáo trình</option>
+          <option value="Tài liệu">Tài liệu</option>
+          <option value="Luận văn">Luận văn</option>
+        </select>
+        <select id="tl-trangthai" onchange="loadTaiLieu()">
+          <option value="">Tất cả trạng thái</option>
+          <option value="Còn">Còn</option>
+          <option value="Đang mượn">Đang mượn</option>
+          <option value="Hỏng">Hỏng</option>
+          <option value="Mất">Mất</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Mã TL</th><th>Tên Tài Liệu</th><th>Tác Giả</th><th>NXB</th><th>Năm XB</th><th>Loại</th><th>Trạng Thái</th><th>Thao Tác</th></tr>
+          </thead>
+          <tbody id="tl-tbody">
+            <tr><td colspan="8" class="loading-row">Đang tải dữ liệu...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── NGƯỜI DÙNG -->
+    <section id="section-nguoidung" class="section">
+      <div class="section-header">
+        <h2>Quản Lý Người Dùng</h2>
+        <button class="btn-primary" onclick="openModal('modal-them-nd')">+ Thêm Người Dùng</button>
+      </div>
+      <div class="filter-bar">
+        <input type="text" id="nd-search" placeholder="🔍 Tìm theo tên, mã SV, email..." oninput="loadNguoiDung()" />
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Mã SV</th><th>Họ Tên</th><th>Tên Đăng Nhập</th><th>Số ĐT</th><th>Email</th><th>Trạng Thái</th><th>Thao Tác</th></tr>
+          </thead>
+          <tbody id="nd-tbody">
+            <tr><td colspan="7" class="loading-row">Đang tải dữ liệu...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── MƯỢN / TRẢ -->
+    <section id="section-muonttra" class="section">
+      <div class="section-header">
+        <h2>Quản Lý Mượn / Trả</h2>
+        <button class="btn-primary" onclick="openMuonModal()">+ Tạo Phiếu Mượn</button>
+      </div>
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab(this, 'dangmuon')">Đang Mượn</button>
+        <button class="tab-btn" onclick="switchTab(this, 'quahan')">Quá Hạn ⚠️</button>
+        <button class="tab-btn" onclick="switchTab(this, 'dattra')">Đã Trả</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Mã PM</th><th>Sinh Viên</th><th>Mã SV</th><th>Tài Liệu</th><th>Ngày Mượn</th><th>Hạn Trả</th><th>Ngày Trả</th><th>Gia Hạn</th><th>Thao Tác</th></tr>
+          </thead>
+          <tbody id="pm-tbody">
+            <tr><td colspan="9" class="loading-row">Đang tải dữ liệu...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── THỐNG KÊ -->
+    <section id="section-thongke" class="section">
+      <div class="section-header">
+        <h2>Báo Cáo & Thống Kê</h2>
+      </div>
+      <div class="stats-grid">
+        <div class="tk-card">
+          <h3>📈 Lượt Mượn Theo Tháng</h3>
+          <div id="chart-thang" class="bar-chart"></div>
+        </div>
+        <div class="tk-card">
+          <h3>🏆 Tài Liệu Được Mượn Nhiều</h3>
+          <div id="chart-tl" class="bar-chart"></div>
+        </div>
+      </div>
+      <div class="tk-card full-width">
+        <h3>⚠️ Danh Sách Vi Phạm Quá Hạn</h3>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr><th>Mã PM</th><th>Sinh Viên</th><th>Mã SV</th><th>Hạn Trả</th><th>Số Ngày Trễ</th></tr>
+            </thead>
+            <tbody id="vipham-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ CHATBOT -->
+<div id="chatbot-toggle" onclick="toggleChat()">💬</div>
+<div id="chatbot-box">
+  <div class="chat-header">
+    <div>
+      <div class="chat-title">Trợ Lý AI</div>
+      <div class="chat-sub">Hỏi về tài liệu, phiếu mượn...</div>
+    </div>
+    <button onclick="toggleChat()" class="chat-close">✕</button>
+  </div>
+  <div id="chat-messages">
+    <div class="msg bot">Xin chào! Tôi có thể giúp bạn tra cứu tài liệu, kiểm tra phiếu mượn, hoặc tìm sinh viên vi phạm. Hãy hỏi tôi nhé! 😊</div>
+  </div>
+  <div class="chat-input-row">
+    <input type="text" id="chat-input" placeholder="Nhập câu hỏi..." onkeypress="if(event.key==='Enter') sendChat()" />
+    <button onclick="sendChat()" class="chat-send">➤</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ MODALS -->
+
+<!-- Modal thêm tài liệu -->
+<div id="modal-them-tl" class="modal-overlay" onclick="closeModalOutside(event, 'modal-them-tl')">
+  <div class="modal-box">
+    <div class="modal-header"><h3>Thêm Tài Liệu Mới</h3><button onclick="closeModal('modal-them-tl')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="input-group"><label>Mã Tài Liệu *</label><input id="new-maTL" placeholder="VD: TL011" /></div>
+        <div class="input-group"><label>Loại *</label>
+          <select id="new-loaiTL">
+            <option value="Sách">Sách</option>
+            <option value="Giáo trình">Giáo trình</option>
+            <option value="Tài liệu">Tài liệu</option>
+            <option value="Luận văn">Luận văn</option>
+          </select>
+        </div>
+      </div>
+      <div class="input-group"><label>Tên Tài Liệu *</label><input id="new-tenTL" placeholder="Nhập tên tài liệu" /></div>
+      <div class="form-row">
+        <div class="input-group"><label>Tác Giả</label><input id="new-tacGia" placeholder="Tên tác giả" /></div>
+        <div class="input-group"><label>Năm Xuất Bản</label><input id="new-namXB" type="number" placeholder="2024" /></div>
+      </div>
+      <div class="input-group"><label>Nhà Xuất Bản</label><input id="new-NXB" placeholder="Tên nhà xuất bản" /></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('modal-them-tl')">Hủy</button>
+      <button class="btn-primary" onclick="themTaiLieu()">Thêm Tài Liệu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal sửa tài liệu -->
+<div id="modal-sua-tl" class="modal-overlay" onclick="closeModalOutside(event, 'modal-sua-tl')">
+  <div class="modal-box">
+    <div class="modal-header"><h3>Cập Nhật Tài Liệu</h3><button onclick="closeModal('modal-sua-tl')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-maTL" />
+      <div class="input-group"><label>Tên Tài Liệu</label><input id="edit-tenTL" /></div>
+      <div class="form-row">
+        <div class="input-group"><label>Tác Giả</label><input id="edit-tacGia" /></div>
+        <div class="input-group"><label>Năm XB</label><input id="edit-namXB" type="number" /></div>
+      </div>
+      <div class="input-group"><label>Nhà Xuất Bản</label><input id="edit-NXB" /></div>
+      <div class="form-row">
+        <div class="input-group"><label>Loại</label>
+          <select id="edit-loaiTL">
+            <option>Sách</option><option>Giáo trình</option><option>Tài liệu</option><option>Luận văn</option>
+          </select>
+        </div>
+        <div class="input-group"><label>Trạng Thái</label>
+          <select id="edit-trangThai">
+            <option>Còn</option><option>Đang mượn</option><option>Hỏng</option><option>Mất</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('modal-sua-tl')">Hủy</button>
+      <button class="btn-primary" onclick="suaTaiLieu()">Lưu Thay Đổi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal tạo phiếu mượn -->
+<div id="modal-muon" class="modal-overlay" onclick="closeModalOutside(event, 'modal-muon')">
+  <div class="modal-box">
+    <div class="modal-header"><h3>Tạo Phiếu Mượn</h3><button onclick="closeModal('modal-muon')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="input-group"><label>Mã Phiếu *</label><input id="new-maPM" placeholder="VD: PM2025011" /></div>
+        <div class="input-group"><label>Mã Sinh Viên *</label><input id="new-maSV" placeholder="VD: 24D190176" /></div>
+      </div>
+      <div class="form-row">
+        <div class="input-group"><label>Ngày Mượn *</label><input id="new-ngayMuon" type="date" /></div>
+        <div class="input-group"><label>Hạn Trả *</label><input id="new-hanTra" type="date" /></div>
+      </div>
+      <div class="input-group"><label>Mã Nhân Viên *</label><input id="new-maNV-pm" placeholder="VD: PLB07355" /></div>
+      <div class="input-group">
+        <label>Tài Liệu (chọn nhiều)</label>
+        <div id="tl-checkboxes" class="tl-checkbox-list">Đang tải...</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('modal-muon')">Hủy</button>
+      <button class="btn-primary" onclick="taoPhieuMuon()">Tạo Phiếu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal gia hạn -->
+<div id="modal-giahan" class="modal-overlay" onclick="closeModalOutside(event, 'modal-giahan')">
+  <div class="modal-box small">
+    <div class="modal-header"><h3>Gia Hạn Phiếu Mượn</h3><button onclick="closeModal('modal-giahan')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="giahan-maPM" />
+      <div class="input-group"><label>Mã Phiếu</label><input id="giahan-maPM-show" disabled /></div>
+      <div class="input-group"><label>Hạn Trả Mới *</label><input id="giahan-hanMoi" type="date" /></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('modal-giahan')">Hủy</button>
+      <button class="btn-primary" onclick="giaHan()">Xác Nhận Gia Hạn</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal trả sách -->
+<div id="modal-tra" class="modal-overlay" onclick="closeModalOutside(event, 'modal-tra')">
+  <div class="modal-box small">
+    <div class="modal-header"><h3>Xác Nhận Trả Tài Liệu</h3><button onclick="closeModal('modal-tra')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="tra-maPM" />
+      <input type="hidden" id="tra-dsTL" />
+      <div class="input-group"><label>Mã Phiếu</label><input id="tra-maPM-show" disabled /></div>
+      <div class="input-group"><label>Tài Liệu Trả</label><input id="tra-dsTL-show" disabled /></div>
+      <div class="input-group"><label>Ngày Trả *</label><input id="tra-ngayTra" type="date" /></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('modal-tra')">Hủy</button>
+      <button class="btn-primary" onclick="traSach()">Xác Nhận Trả</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast thông báo -->
+<div id="toast" class="toast"></div>
+
+<!-- Modal thêm người dùng -->
+<div id="modal-them-nd" class="modal-overlay" onclick="closeModalOutside(event, 'modal-them-nd')">
+  <div class="modal-box">
+    <div class="modal-header"><h3>Thêm Người Dùng Mới</h3><button onclick="closeModal('modal-them-nd')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="input-group"><label>Mã Sinh Viên *</label><input id="new-maSV-nd" placeholder="VD: 24D190186" /></div>
+        <div class="input-group"><label>Họ Tên *</label><input id="new-hoTen-nd" placeholder="Nhập họ tên" /></div>
+      </div>
+      <div class="form-row">
+        <div class="input-group"><label>Tên Đăng Nhập *</label><input id="new-username-nd" placeholder="VD: user11" /></div>
+        <div class="input-group"><label>Mật Khẩu *</label><input id="new-password-nd" type="password" placeholder="••••••" /></div>
+      </div>
+      <div class="form-row">
+        <div class="input-group"><label>Số Điện Thoại</label><input id="new-sodt-nd" placeholder="09xxxxxxxx" /></div>
+        <div class="input-group"><label>Email</label><input id="new-email-nd" type="email" placeholder="example@gmail.com" /></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('modal-them-nd')">Hủy</button>
+      <button class="btn-primary" onclick="themNguoiDung()">Thêm Người Dùng</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal sửa người dùng -->
+<div id="modal-sua-nd" class="modal-overlay" onclick="closeModalOutside(event, 'modal-sua-nd')">
+  <div class="modal-box">
+    <div class="modal-header"><h3>Cập Nhật Người Dùng</h3><button onclick="closeModal('modal-sua-nd')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-maSV-nd-hidden" />
+      <div class="form-row">
+        <div class="input-group"><label>Mã Sinh Viên</label><input id="edit-maSV-nd" disabled /></div>
+        <div class="input-group"><label>Họ Tên *</label><input id="edit-hoTen-nd" /></div>
+      </div>
+      <div class="form-row">
+        <div class="input-group"><label>Tên Đăng Nhập *</label><input id="edit-username-nd" /></div>
+        <div class="input-group"><label>Mật Khẩu *</label><input id="edit-password-nd" type="password" /></div>
+      </div>
+      <div class="form-row">
+        <div class="input-group"><label>Số Điện Thoại</label><input id="edit-sodt-nd" /></div>
+        <div class="input-group"><label>Email</label><input id="edit-email-nd" type="email" /></div>
+      </div>
+      <div class="input-group">
+        <label>Trạng Thái Tài Khoản</label>
+        <select id="edit-trangThai-nd">
+          <option value="Hoạt động">Hoạt động</option>
+          <option value="Bị Khoá">Bị Khoá</option>
+          <option value="Tạm Khoá">Tạm Khoá</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('modal-sua-nd')">Hủy</button>
+      <button class="btn-primary" onclick="suaNguoiDung()">Lưu Thay Đổi</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
