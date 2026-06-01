@@ -167,6 +167,45 @@ app.get('/api/dashboard', async (req, res) => {
   }
 });
 
+// ─── MÃ TỰ ĐỘNG ──────────────────────────────────────────────────────────────
+// Trả về mã tài liệu tiếp theo (ví dụ TL001 → TL002)
+app.get('/api/tailieu/next-id', async (req, res) => {
+  try {
+    const [rows] = await pool.query("SELECT MaTL FROM TAILIEU ORDER BY MaTL DESC LIMIT 1");
+    if (rows.length === 0) return res.json({ nextId: 'TL001' });
+    const lastId = rows[0].MaTL || '';
+    const match = lastId.match(/^([A-Za-z]*)(\d+)$/);
+    if (match) {
+      const prefix = match[1];
+      const num = parseInt(match[2]);
+      const nextNum = String(num + 1).padStart(match[2].length, '0');
+      return res.json({ nextId: `${prefix}${nextNum}` });
+    }
+    return res.json({ nextId: lastId + '_1' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Trả về mã phiếu mượn tiếp theo (ví dụ PM001 → PM002)
+app.get('/api/phieumuon/next-id', async (req, res) => {
+  try {
+    const [rows] = await pool.query("SELECT MaPM FROM PHIEUMUON ORDER BY MaPM DESC LIMIT 1");
+    if (rows.length === 0) return res.json({ nextId: 'PM001' });
+    const lastId = rows[0].MaPM || '';
+    const match = lastId.match(/^([A-Za-z]*)(\d+)$/);
+    if (match) {
+      const prefix = match[1];
+      const num = parseInt(match[2]);
+      const nextNum = String(num + 1).padStart(match[2].length, '0');
+      return res.json({ nextId: `${prefix}${nextNum}` });
+    }
+    return res.json({ nextId: lastId + '_1' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // ─── TÀI LIỆU ────────────────────────────────────────────────────────────────
 app.get('/api/tailieu', async (req, res) => {
   const { search, loai, trangthai } = req.query;

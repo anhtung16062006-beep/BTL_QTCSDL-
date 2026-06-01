@@ -295,6 +295,19 @@ function badgeTL(tt) {
   return 'badge-mat';
 }
 
+async function openThemTLModal() {
+  // Tự động lấy mã tài liệu tiếp theo
+  try {
+    const res = await fetch(`${API}/tailieu/next-id`);
+    const d = await res.json();
+    const maTLInput = document.getElementById('new-maTL');
+    if (maTLInput) maTLInput.value = d.nextId || '';
+  } catch (e) {
+    console.warn('Không thể lấy mã TL tự động:', e);
+  }
+  openModal('modal-them-tl');
+}
+
 function openEditTL(t) {
   document.getElementById('edit-maTL').value = t.MaTL;
   document.getElementById('edit-tenTL').value = t.TenTL;
@@ -506,6 +519,15 @@ async function loadPhieuMuon(trangthai) {
 }
 
 async function openMuonModal() {
+  // Tự động lấy mã phiếu mượn tiếp theo
+  try {
+    const nextRes = await fetch(`${API}/phieumuon/next-id`);
+    const nextData = await nextRes.json();
+    const maPMInput = document.getElementById('new-maPM');
+    if (maPMInput) maPMInput.value = nextData.nextId || '';
+  } catch (e) {
+    console.warn('Không thể lấy mã PM tự động:', e);
+  }
   // Load danh sách tài liệu còn
   const res = await fetch(`${API}/tailieu?trangthai=Còn`);
   const list = await res.json();
